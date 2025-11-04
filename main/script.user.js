@@ -72,6 +72,8 @@
     }
 
     async function startTime(){
+        const start_button = document.querySelector('.XCoPyb');
+        if (start_button) start_button.removeEventListener('click', startTime);
         initialTime = new Date();
         console.log(`Temporizador iniciado a las: ${initialTime.toLocaleTimeString()}`);
         try{
@@ -142,6 +144,11 @@
         if (!this.value){
             console.log(`${this.id} no encontrado`);
             document.getElementById(`${this.id}-id`).innerText = '';
+            if (this.id === "project"){
+                document.getElementById('task').disabled = true;
+                document.getElementById('task').value = '';
+                document.getElementById('task-id').innerText = '';
+            }
             return;
         }
         let domain = [
@@ -168,6 +175,7 @@
         };
         document.getElementById(`${this.id}-id`).innerText = data.id;
         this.value = data.name;
+        document.getElementById('task').disabled = false
     }
 
     function createImputationConfig() {
@@ -315,8 +323,10 @@
         imputationConfig.append(display_buttom,div_container)
 
         display_buttom.addEventListener("click", ()=>{
-            if (!document.getElementById('project').value){
-                document.getElementById('task').readonly = true
+            if (document.getElementById('project-id').textContent === ''){
+                document.getElementById('task').disabled = true
+            } else {
+                document.getElementById('task').disabled = false
             }
             if (div_container.style.display === 'none'){
                 div_container.style.display = "flex"
@@ -336,8 +346,10 @@
         projectTaskTab.addEventListener("click", () => {
             switchTab(projectTaskTab, configTab, taskConfig, globalConfig);
             buttonGuardar.style.display = 'none';
-            if (!document.getElementById('project').value){
-                document.getElementById('task').readonly = true
+            if (document.getElementById('project-id').textContent === ''){
+                document.getElementById('task').disabled = true
+            } else {
+                document.getElementById('task').disabled = false
             }
         });
 
