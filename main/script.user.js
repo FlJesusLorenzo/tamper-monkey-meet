@@ -80,8 +80,6 @@
                     setDailyReport();
                 } else if (location.origin + location.pathname === GM_getValue('refinement_meet')){
                     setRefinementReport();
-                }else {
-                    setTaskReport();
                 };
             }, 5000)
         } catch(e){
@@ -113,7 +111,7 @@
     function sendTimeTrackingData() {
         const endTime = new Date();
         const elapsedMilliseconds = endTime - initialTime;
-        const elapsedHours = Math.round((elapsedMilliseconds / 3600000)*100)/100;
+        let elapsedHours = Math.round((elapsedMilliseconds / 3600000)*100)/100;
         project_id = parseInt(document.getElementById('project-id').textContent)
         task_id = parseInt(document.getElementById('task-id').textContent)
         elapsedHours = checkEndNumber(elapsedHours);
