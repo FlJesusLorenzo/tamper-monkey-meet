@@ -264,10 +264,10 @@
 
         const buttonImputar = document.createElement("button");
         if (GM_getValue("daily_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar nuevo daily";
+            buttonImputar.textContent = "Imputar y empezar Refinamiento";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else if (GM_getValue("refinement_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar nuevo refinamiento";
+            buttonImputar.textContent = "Imputar y empezar otra tarea";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else {
             buttonImputar.textContent = "Imputar";
