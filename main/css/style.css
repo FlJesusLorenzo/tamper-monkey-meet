@@ -1,19 +1,19 @@
 #imputation_config{
-    position: absolute;
-    bottom: -220px;
-    left: 20px;
     z-index: 999;
-    background: red;
+    background: none;
     padding: 10px;
-    opacity: 0.1;
-    transition: transform 0.5s ease-in-out,
-        opacity 0.2s ease-in-out;
+    transition: background 0.2s ease-in-out,
+        display 0.2 ease-in-out;
     border-radius: 20px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    color: black;
+    display: flex;
 }
 
-#imputation_config:hover{
-    transform: translateY(-220px);
-    opacity: 1;
+#div_imputation_container{
+    display:none;
 }
 
 .title{
@@ -35,7 +35,7 @@
 }
 .form-tabs {
     display: flex;
-    border: 1px solid white;
+    border: 1px solid black;
     border-bottom: 0;
 }
 .tab {
@@ -44,65 +44,27 @@
     text-align: center;
     cursor: pointer;
     color: #000;
-    background: red;
+    background: white;
     border: none;
     font-size: 14px;
     transition: all 0.3s ease;
 }
 .tab.active {
-    background: #FFF;
+    background: #C66;
     color: black;
     font-weight: 500;
 }
 .form-section {
     display: none;
     width: 510px;
-    height: 110px;
 }
 
 .form-section.active {
     display: block;
     padding: 10px;
-    border: 1px solid white;
+    border: 1px solid black;
     border-top: 0;
 }
-
-.btn-primary {
-  color: var(--bs-btn-color, #fff);
-  background-color: var(--bs-btn-bg, #007bff);
-  border-color: var(--bs-btn-border-color, #007bff);
-}
-
-.btn-primary:hover {
-  color: var(--bs-btn-hover-color, #fff);
-  background-color: var(--bs-btn-hover-bg, #0069d9);
-  border-color: var(--bs-btn-hover-border-color, #0062cc);
-}
-
-.btn-primary:focus {
-  color: var(--bs-btn-hover-color, #fff);
-  background-color: var(--bs-btn-hover-bg, #0069d9);
-  border-color: var(--bs-btn-hover-border-color, #0062cc);
-  box-shadow: var(--bs-btn-focus-shadow, 0 0 0 0.2rem rgba(0, 123, 255, 0.25));
-}
-
-.btn-primary:active,
-.btn-primary.active {
-  color: var(--bs-btn-active-color, #fff);
-  background-color: var(--bs-btn-active-bg, #0062cc);
-  border-color: var(--bs-btn-active-border-color, #005cbf);
-  box-shadow: var(--bs-btn-active-shadow, inset 0 3px 5px rgba(0, 0, 0, 0.125));
-}
-
-.btn-primary:disabled,
-.btn-primary.disabled {
-  color: var(--bs-btn-disabled-color, #fff);
-  background-color: var(--bs-btn-disabled-bg, #007bff);
-  border-color: var(--bs-btn-disabled-border-color, #007bff);
-  opacity: 0.65;
-  pointer-events: none;
-}
-
 .btn {
     font-size: 14px;
     padding: 6px 12px;
@@ -142,4 +104,66 @@
     outline: 0;
     -webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, .125);
     box-shadow: inset 0 3px 5px rgba(0, 0, 0, .125);
+}
+
+.btn-primary {
+  color: var(--bs-btn-color, #fff);
+  background-color: var(--bs-btn-bg, #007bff);
+  border-color: var(--bs-btn-border-color, #007bff);
+}
+
+.btn-primary:hover {
+  color: var(--bs-btn-hover-color, #fff);
+  background-color: var(--bs-btn-hover-bg, #0069d9);
+  border-color: var(--bs-btn-hover-border-color, #0062cc);
+}
+
+.btn-primary:focus {
+  color: var(--bs-btn-hover-color, #fff);
+  background-color: var(--bs-btn-hover-bg, #0069d9);
+  border-color: var(--bs-btn-hover-border-color, #0062cc);
+  box-shadow: var(--bs-btn-focus-shadow, 0 0 0 0.2rem rgba(0, 123, 255, 0.25));
+}
+
+.btn-primary:active,
+.btn-primary.active {
+  color: var(--bs-btn-active-color, #fff);
+  background-color: var(--bs-btn-active-bg, #0062cc);
+  border-color: var(--bs-btn-active-border-color, #005cbf);
+  box-shadow: var(--bs-btn-active-shadow, inset 0 3px 5px rgba(0, 0, 0, 0.125));
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled {
+  color: var(--bs-btn-disabled-color, #fff);
+  background-color: var(--bs-btn-disabled-bg, #007bff);
+  border-color: var(--bs-btn-disabled-border-color, #007bff);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+#imputation_config input,
+#imputation_config textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease;
+}
+#imputation_config input:focus,
+#imputation_config textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+#imputation_config input::placeholder{
+  color: #000;
+  opacity: 0.5;
+}
+#imputation_config label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.2.0
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -37,14 +37,12 @@
     let project_id = null
 
     async function setDailyReport(){
-        description = document.getElementById('description')
-        description.textContent = description.value = document.querySelector('div[jsname="NeC6gb"]').textContent.split(' ').slice(0,2).join(' ')
+        document.getElementById('description').textContent = document.querySelector('div[jsname="NeC6gb"]').textContent
         await setProjectAndTask("Temas internos", "Daily")
     }
 
     async function setRefinementReport(){
-        description = document.getElementById('description')
-        description.textContent = description.value = document.querySelector('div[jsname="NeC6gb"]').textContent.split(' ').slice(0,2).join(' ').replace('Daily', 'Refinamiento')
+        document.getElementById('description').textContent = document.querySelector('div[jsname="NeC6gb"]').textContent.replace('Daily', 'Refinamiento')
         await setProjectAndTask("Temas internos", "Refinement")
     }
 
@@ -77,7 +75,7 @@
         try{
             setTimeout(()=>{
                 document.querySelector('button[jsname="CQylAd"]').addEventListener('click', sendTimeTrackingData)
-                document.body.appendChild(createImputationConfig());
+                document.querySelector('div[jsname="ys7RQc"]').parentElement.appendChild(createImputationConfig());
                 if (location.origin + location.pathname === GM_getValue('daily_meet')){
                     setDailyReport();
                 } else if (location.origin + location.pathname === GM_getValue('refinement_meet')){
@@ -117,7 +115,7 @@
         elapsedHours = checkEndNumber(elapsedHours);
         project_id = parseInt(document.getElementById('project-id').textContent)
         task_id = parseInt(document.getElementById('task-id').textContent)
-        description = document.getElementById('description').textContent
+        description = document.getElementById('description').value;
         console.log(`Tiempo total a imputar: ${formatDecimalToTime(elapsedHours)}.`);
         odooRPC.createTimesheetEntry(
             project_id,
@@ -163,6 +161,13 @@
         const imputationConfig = document.createElement("div");
         imputationConfig.id = "imputation_config";
 
+        const display_buttom = document.createElement('buttom');
+        display_buttom.id = "display_imputation_buttom";
+        display_buttom.classList = "wX4xVc-Bz112c-LgbsSe wX4xVc-Bz112c-LgbsSe-OWXEXe-SfQLQb-suEOdc MNFoWc gP9Sgd lSuz7d";
+
+        const div_container = document.createElement('div')
+        div_container.id = "div_imputation_container";
+        div_container.style.display = 'none'
 
         const title = document.createElement("h3");
         title.innerText = "Configuración de Imputación";
@@ -237,7 +242,7 @@
             } else {
                 input = document.createElement('textarea')
             }
-            
+
             input.id = id;
             input.classList = inputClass;
 
@@ -266,16 +271,16 @@
 
         const buttonImputar = document.createElement("button");
         if (GM_getValue("daily_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar Refinamiento";
+            buttonImputar.textContent = "Imputar y empezar nuevo daily";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else if (GM_getValue("refinement_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar otra tarea";
+            buttonImputar.textContent = "Imputar y empezar nuevo refinamiento";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else {
             buttonImputar.textContent = "Imputar";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         }
-        
+
         buttonImputar.classList = "btn btn-primary"
 
         const buttonGuardar = document.createElement("button");
@@ -284,8 +289,20 @@
 
         buttonConfig.append(buttonImputar, buttonGuardar);
         formTabs.append(projectTaskTab, configTab)
+        div_container.append(title, formTabs, imputationInputs, buttonConfig);
+        imputationConfig.append(display_buttom,div_container)
 
-        imputationConfig.append(title, formTabs, imputationInputs, buttonConfig);
+        display_buttom.addEventListener("click", ()=>{
+            const master = document.getElementById("imputation_config");
+            const div = document.getElementById("div_imputation_container");
+            if (div.style.display === 'none'){
+                div.style.display = "block"
+                master.style.background = "white";
+                return;
+            }
+            div.style.display = 'none';
+            master.style.background = "none";
+        })
         buttonGuardar.addEventListener("click", configSettings)
         configTab.addEventListener("click", () => {
             switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
