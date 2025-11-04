@@ -315,6 +315,9 @@
         imputationConfig.append(display_buttom,div_container)
 
         display_buttom.addEventListener("click", ()=>{
+            if (!document.getElementById('project').value){
+                document.getElementById('task').readonly = true
+            }
             if (div_container.style.display === 'none'){
                 div_container.style.display = "flex"
                 imputationConfig.style.background = "white";
@@ -333,6 +336,9 @@
         projectTaskTab.addEventListener("click", () => {
             switchTab(projectTaskTab, configTab, taskConfig, globalConfig);
             buttonGuardar.style.display = 'none';
+            if (!document.getElementById('project').value){
+                document.getElementById('task').readonly = true
+            }
         });
 
         if (GM_getValue("odoo_url") === '') {
