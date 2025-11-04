@@ -228,11 +228,12 @@
             const label = document.createElement("label");
             label.setAttribute("for", id);
             label.textContent = labelText;
-            
+
+            let input = null
             if (id !== 'description'){
-                const input = document.createElement("input");
+                input = document.createElement("input");
             } else {
-                const input = document.createElement('textarea')
+                input = document.createElement('textarea')
             }
             
             input.id = id;
