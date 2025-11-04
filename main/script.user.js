@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.3.0
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -10,12 +10,14 @@
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @match        https://meet.google.com/*
+// @exclude      https://meet.google.com/landing
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @resource css https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/css/style.css
 // @require      https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-imputar/refs/heads/main/main/scripts/utils.js
 // @require      https://raw.githubusercontent.com/FlJesusLorenzo/tampermonkey-odoo-rpc/refs/heads/main/OdooRPC.js
-// @updateURL   https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/script.user.js
-// @downloadURL https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/script.user.js
+// @connect      *
+// @updateURL    https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/script.user.js
+// @downloadURL  https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/script.user.js
 // ==/UserScript==
 
 (function() {
@@ -90,8 +92,10 @@
     function stopAndStartNewImputation(){
         sendTimeTrackingData();
         initialTime = new Date();
+        console.log(`Nuevo Temporizador iniciado a las: ${initialTime.toLocaleTimeString()}`);
         if (location.origin + location.pathname === GM_getValue('daily_meet')){
             setRefinementReport();
+            document.getElementById('save-imputation').innerText = "Imputar y empezar otra tarea"
         }
     }
 
@@ -116,13 +120,22 @@
         project_id = parseInt(document.getElementById('project-id').textContent)
         task_id = parseInt(document.getElementById('task-id').textContent)
         description = document.getElementById('description').value;
+        if (!project_id || !task_id){
+            clickButton(document.getElementById('save-imputation'),'Error al imputar','btn-primary','btn-danger')
+            return;
+        }
         console.log(`Tiempo total a imputar: ${formatDecimalToTime(elapsedHours)}.`);
-        odooRPC.createTimesheetEntry(
-            project_id,
-            task_id,
-            description,
-            elapsedHours
-        )
+        try {
+            odooRPC.createTimesheetEntry(
+                project_id,
+                task_id,
+                description,
+                elapsedHours
+            )
+            clickButton(document.getElementById('save-imputation'),'Imputación creada','btn-primary','btn-success')
+        } catch {
+            clickButton(document.getElementById('save-imputation'),'Error al imputar','btn-primary','btn-danger')
+        }
     }
 
     async function getProyectOrTask(){
@@ -160,10 +173,16 @@
     function createImputationConfig() {
         const imputationConfig = document.createElement("div");
         imputationConfig.id = "imputation_config";
+        imputationConfig.classList = "pt8HRc RTBkae";
 
         const display_buttom = document.createElement('buttom');
         display_buttom.id = "display_imputation_buttom";
         display_buttom.classList = "wX4xVc-Bz112c-LgbsSe wX4xVc-Bz112c-LgbsSe-OWXEXe-SfQLQb-suEOdc MNFoWc gP9Sgd lSuz7d";
+
+        const icon = document.createElement('span')
+        icon.id = 'imputation_icon'
+        icon.innerText = '📝'
+        display_buttom.append(icon)
 
         const div_container = document.createElement('div')
         div_container.id = "div_imputation_container";
@@ -224,8 +243,8 @@
 
         globalConfig.appendChild(createInputBlock("odoo_url", "URL Odoo: ", GM_getValue("odoo_url"), "global-config", "block-config"));
         globalConfig.appendChild(createInputBlock("db", "Base de datos: ", GM_getValue("db"), "global-config", "block-config"));
-        globalConfig.appendChild(createInputBlock("daily_meet", "URL meet daily: ", GM_getValue("daily_meet"), "global-config", "block-config"));
-        globalConfig.appendChild(createInputBlock("refinement_meet", "URL meet refinement: ", GM_getValue("refinement_meet"), "global-config", "block-config"));
+        globalConfig.appendChild(createInputBlock("daily_meet", "URL Meet Daily: ", GM_getValue("daily_meet"), "global-config", "block-config"));
+        globalConfig.appendChild(createInputBlock("refinement_meet", "URL Meet Refinamiento: ", GM_getValue("refinement_meet"), "global-config", "block-config"));
 
         function createTaskBlock(id, labelText, inputClass, blockClass) {
             const block = document.createElement("div");
@@ -263,18 +282,18 @@
         taskConfig.appendChild(createTaskBlock("task","Tarea: ","task-config", "block-config"));
         taskConfig.appendChild(createTaskBlock("description","Descripción: ", "task-config", "block-config"))
 
-        imputationInputs.append(globalConfig, taskConfig);
 
         const buttonConfig = document.createElement("div");
         buttonConfig.id = "button_config";
         buttonConfig.classList = "block-config"
 
         const buttonImputar = document.createElement("button");
+        buttonImputar.id = 'save-imputation'
         if (GM_getValue("daily_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar nuevo daily";
+            buttonImputar.textContent = "Imputar y empezar Refinamiento";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else if (GM_getValue("refinement_meet") === location.origin + location.pathname){
-            buttonImputar.textContent = "Imputar y empezar nuevo refinamiento";
+            buttonImputar.textContent = "Imputar y empezar otra tarea";
             buttonImputar.addEventListener("click", stopAndStartNewImputation)
         } else {
             buttonImputar.textContent = "Imputar";
@@ -284,41 +303,68 @@
         buttonImputar.classList = "btn btn-primary"
 
         const buttonGuardar = document.createElement("button");
+        buttonGuardar.id = 'save-config'
         buttonGuardar.textContent = "Guardar configuración";
         buttonGuardar.classList = "btn btn-primary"
+        buttonGuardar.style.display = 'none';
 
         buttonConfig.append(buttonImputar, buttonGuardar);
         formTabs.append(projectTaskTab, configTab)
-        div_container.append(title, formTabs, imputationInputs, buttonConfig);
+        imputationInputs.append(formTabs, globalConfig, taskConfig);
+        div_container.append(title, imputationInputs, buttonConfig);
         imputationConfig.append(display_buttom,div_container)
 
         display_buttom.addEventListener("click", ()=>{
-            const master = document.getElementById("imputation_config");
-            const div = document.getElementById("div_imputation_container");
-            if (div.style.display === 'none'){
-                div.style.display = "block"
-                master.style.background = "white";
+            if (div_container.style.display === 'none'){
+                div_container.style.display = "flex"
+                imputationConfig.style.background = "white";
+                icon.innerText = '⚙️'
                 return;
             }
-            div.style.display = 'none';
-            master.style.background = "none";
+            div_container.style.display = 'none';
+            imputationConfig.style.background = "none";
+            icon.innerText = '📝'
         })
         buttonGuardar.addEventListener("click", configSettings)
         configTab.addEventListener("click", () => {
             switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
+            buttonGuardar.style.display = '';
         });
         projectTaskTab.addEventListener("click", () => {
             switchTab(projectTaskTab, configTab, taskConfig, globalConfig);
+            buttonGuardar.style.display = 'none';
         });
+
+        if (GM_getValue("odoo_url") === '') {
+            switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
+            buttonGuardar.style.display = '';
+            display_buttom.classList.add('btn-warning')
+        }
 
         return imputationConfig;
     }
 
-    function configSettings(){
+    function clickButton(element, text, fromClass, toClass){
+        element.classList.add(toClass)
+        element.classList.remove(fromClass)
+        element.disabled = true
+        let backup_text = element.innerText
+        element.innerText = text
+        setTimeout(()=>{
+            element.classList.remove(toClass)
+            element.classList.add(fromClass)
+            element.disabled = false
+            element.innerText = backup_text
+        },1000)
+    }
+
+    async function configSettings(){
         GM_setValue('odoo_url', document.getElementById("odoo_url").value)
         GM_setValue('db', document.getElementById("db").value)
         GM_setValue('daily_meet', document.getElementById("daily_meet").value)
         GM_setValue('refinement_meet', document.getElementById("refinement_meet").value)
+        const button = document.getElementById("save-config");
+        const display_button = document.getElementById("display_imputation_buttom");
         odooRPC = new OdooRPC(
             GM_getValue("odoo_url"),
             GM_getValue("db"),
@@ -327,10 +373,15 @@
                 tz: "Europe/Madrid",
             }
         )
-        odooRPC.authenticate();
+        clickButton(button, 'Configuración guardada','btn-primary','btn-success')
+        const session = await odooRPC.authenticate();
+        if (await session) await display_button.classList.remove('btn-warning')
+        else await display_button.classList.add('btn-warning')
     }
 
     window.addEventListener('load', () => {
-        document.querySelector('.XCoPyb').addEventListener('click', startTime)
+        const button = document.querySelector('.XCoPyb');
+        if (button)button.addEventListener('click', startTime);
+        else startTime();
     });
 })();
