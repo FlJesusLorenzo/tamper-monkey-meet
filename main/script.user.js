@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      1.4.0
+// @version      1.4.1
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -289,6 +289,8 @@
         const imputationConfig = document.createElement("div");
         imputationConfig.id = "imputation_config";
         imputationConfig.classList = "pt8HRc RTBkae";
+        imputationConfig.style.top = "0px";
+        imputationConfig.style.right = "0px";
 
         const display_buttom = document.createElement('buttom');
         display_buttom.id = "display_imputation_buttom";
@@ -451,11 +453,13 @@
             if (div_container.style.display === 'none'){
                 div_container.style.display = "flex"
                 imputationConfig.style.background = "white";
+                imputationConfig.style.position = 'absolute';
                 icon.innerText = '⚙️'
                 return;
             }
             div_container.style.display = 'none';
             imputationConfig.style.background = "none";
+            imputationConfig.style.position = 'relative';
             icon.innerText = '📝'
         })
         saveButton.addEventListener("click", configSettings)
