@@ -57,6 +57,13 @@
         })
     }
 
+    function clickButton(element, text, fromClass, toClass, disabled=true){
+        element.classList.add(toClass)
+        element.classList.remove(fromClass)
+        element.disabled = disabled
+        element.innerText = text
+    }
+
     async function ensureAuth(){
         const auth = await odooRPC.authenticate();
         if (!await auth){
@@ -77,6 +84,12 @@
         if (!await ensureAuth()) return
         document.getElementById('description').textContent = document.querySelector('div[jsname="NeC6gb"]').textContent.replace('Daily', 'Refinamiento')
         await setProjectAndTask("Temas internos", "Refinement")
+    }
+
+    async function setStaticUrlReport(element){
+        if (!await ensureAuth()) return
+        document.getElementById('description').textContent = element.description
+        await setProjectAndTask(element.project, element.task)
     }
 
     async function setProjectAndTask(project_name, task_name){
@@ -108,6 +121,7 @@
         initialTime = new Date();
         console.log(`Temporizador iniciado a las: ${initialTime.toLocaleTimeString()}`);
         try{
+            const static_urls = GM_getValue('url_static',[])
             setTimeout(()=>{
                 document.querySelector('button[jsname="CQylAd"]').addEventListener('click', ()=> {
                     sendTimeTrackingData()
@@ -117,22 +131,31 @@
                     })
                 })
                 document.querySelector('div[jsname="ys7RQc"]').parentElement.appendChild(createImputationConfig());
+                let element = static_urls.find(item => item.value === location.origin + location.pathname);
                 if (location.origin + location.pathname === GM_getValue('daily_meet')){
                     setDailyReport();
-                } else if (location.origin + location.pathname === GM_getValue('refinement_meet')){
-                    setRefinementReport();
+                } else if (element){
+                    setStaticUrlReport(element);
                 };
-            }, 5000)
+            }, 1500)
         } catch(e){
             console.log(`Error ${e}`)
         }
     }
 
     async function configSettings(){
-        GM_setValue('odoo_url', document.getElementById("odoo_url").value)
-        GM_setValue('db', document.getElementById("db").value)
-        GM_setValue('daily_meet', document.getElementById("daily_meet").value)
-        GM_setValue('refinement_meet', document.getElementById("refinement_meet").value);
+        GM_setValue('odoo_url', document.getElementById("odoo_url").value);
+        GM_setValue('db', document.getElementById("db").value);
+        GM_setValue('daily_meet', document.getElementById("daily").value);
+        let static_urls = document.querySelectorAll('.new-url')
+        static_urls.forEach((element)=>{
+            const absolutes = GM_getValue('url_static')
+            const elemento = absolutes.find(item => item.name === element.id)
+            if (elemento){
+                elemento.value = element.value
+            }
+            GM_setValue('url_static', absolutes)
+        })
         const display_button = document.getElementById("display_imputation_buttom");
         odooRPC = new OdooRPC(
             GM_getValue("odoo_url"),
@@ -285,6 +308,75 @@
         }
     }
 
+    function createInputBlock(id, labelText, inputValue, inputClass, blockClass) {
+        const block = document.createElement("div");
+        block.id = `block-${id}`;
+        block.classList = blockClass;
+
+        const label = document.createElement("label");
+        label.setAttribute("for", id);
+        label.textContent = labelText;
+        label.classList = "input-group-text";
+        label.style = "margin-top: 5px; justify-content: center; display:flex; align-items: center";
+        block.appendChild(label);
+
+        const input = document.createElement('input');
+        input.id = id;
+        input.classList = inputClass;
+        input.value = inputValue || '';
+        input.addEventListener('blur', ()=>{
+            input.value = input.value.trim()
+        });
+        block.appendChild(input);
+
+        if (inputClass.endsWith('new-url')){
+            const span_conf = document.createElement('span');
+            span_conf.classList = "input-group-text";
+            span_conf.style = "margin-top: 5px;background: grey;"
+            span_conf.innerText = '⚙️'
+            span_conf.style.cursor = 'pointer'
+            span_conf.addEventListener('click', async ()=>{
+                if (!await newStaticUrl()){
+                    showStatus(`La url estatica ${id} no ha podido guardarse`, "error", statusDiv)
+                }else {
+                    showStatus(`La url estatica ${id} guardada con exito`, "success", statusDiv)
+                    let absolutes = GM_getValue("url_static",[]);
+                    let element = absolutes.find(item => item.name === id);
+                    absolutes.pop(element);
+                    GM_setValue("url_static",absolutes);
+                }
+                setTimeout(()=>{
+                    showStatus(``, undefined, statusDiv)
+                },2000)
+            })
+            const span_del = document.createElement('span');
+            span_del.classList = "input-group-text";
+            span_del.style = "margin-top: 5px;background: #e35f5d;"
+            span_del.innerText = '❌'
+            span_del.style.cursor = 'pointer'
+            span_del.addEventListener('click', async ()=>{
+                showStatus(`La url estatica ${id} borrada con exito`, "success", statusDiv)
+                let absolutes = GM_getValue("url_static",[]);
+                let element = absolutes.find(item => item.name === id);
+                absolutes.pop(element);
+                GM_setValue("url_static",absolutes)
+                block.remove()
+                setTimeout(()=>{
+                    showStatus(``, undefined, statusDiv)
+                },2000)
+            })
+            block.append(span_del,span_conf);
+        }
+        return block;
+    };
+
+    function cleanUrl(){
+        let absolutes = GM_getValue("url_static",[]);
+        let element = absolutes.find(item => item.name === id);
+        absolutes.pop(element);
+        GM_getValue("url_static",absolutes)
+    }
+
     function createImputationConfig() {
         const imputationConfig = document.createElement("div");
         imputationConfig.id = "imputation_config";
@@ -319,6 +411,12 @@
         globalConfig.id = "global_config";
         globalConfig.classList = "form-section";
 
+        const urlConfig = document.createElement("div");
+        urlConfig.id = "url_config";
+        urlConfig.classList = "form-section";
+        urlConfig.style.maxHeight = "200px";
+        urlConfig.style.overflow = "overlay";
+
         const taskConfig = document.createElement("div");
         taskConfig.id = "task_config";
         taskConfig.classList = "form-section active";
@@ -327,6 +425,11 @@
         configTab.classList = "tab";
         configTab.id = "config-tab";
         configTab.innerText = "Configuración";
+
+        const urlTab = document.createElement("div");
+        urlTab.classList = "tab";
+        urlTab.id = "url-tab";
+        urlTab.innerText = "URLs estáticas";
 
         const projectTaskTab = document.createElement("div");
         projectTaskTab.classList = "tab active";
@@ -341,9 +444,6 @@
         imputationButton.id = 'save-imputation'
         if (GM_getValue("daily_meet") === location.origin + location.pathname){
             imputationButton.textContent = "Imputar y empezar Refinamiento";
-            imputationButton.addEventListener("click", stopAndStartNewImputation)
-        } else if (GM_getValue("refinement_meet") === location.origin + location.pathname){
-            imputationButton.textContent = "Imputar y empezar otra tarea";
             imputationButton.addEventListener("click", stopAndStartNewImputation)
         } else {
             imputationButton.textContent = "Imputar";
@@ -372,33 +472,18 @@
         const by_name = document.createElement('span')
         by_name.innerText = 'by Jesús Lorenzo'
 
-        function createInputBlock(id, labelText, inputValue, inputClass, blockClass) {
-            const block = document.createElement("div");
-            block.id = `block-${id}`;
-            block.classList = blockClass;
+        const add_static_url = document.createElement('button')
+        add_static_url.id = 'add-url';
+        add_static_url.textContent = "Agregar nueva URL";
+        add_static_url.classList = "btn btn-primary";
+        urlConfig.appendChild(add_static_url)
 
-            const label = document.createElement("label");
-            label.setAttribute("for", id);
-            label.textContent = labelText;
-
-            const input = document.createElement("input");
-            input.id = id;
-            input.classList = inputClass;
-            input.value = inputValue || '';
-
-            block.appendChild(label);
-            block.appendChild(input);
-            input.addEventListener('blur', ()=>{
-                input.value = input.value.trim()
-            });
-
-            return block;
-        };
-
-        globalConfig.appendChild(createInputBlock("odoo_url", "URL Odoo: ", GM_getValue("odoo_url"), "global-config form-control", "block-config"));
-        globalConfig.appendChild(createInputBlock("db", "Base de datos: ", GM_getValue("db"), "global-config form-control", "block-config"));
-        globalConfig.appendChild(createInputBlock("daily_meet", "URL Meet Daily: ", GM_getValue("daily_meet"), "global-config form-control", "block-config"));
-        globalConfig.appendChild(createInputBlock("refinement_meet", "URL Meet Refinamiento: ", GM_getValue("refinement_meet"), "global-config form-control", "block-config"));
+        globalConfig.appendChild(createInputBlock("odoo_url", "URL Odoo: ", GM_getValue("odoo_url"), "global-config form-control", "input-group flex-nowrap mb-3"));
+        globalConfig.appendChild(createInputBlock("db", "Base de datos: ", GM_getValue("db"), "global-config form-control", "input-group flex-nowrap mb-3"));
+        globalConfig.appendChild(createInputBlock("daily", "URL meet daily: ", GM_getValue("daily_meet"), "global-config form-control", "input-group flex-nowrap mb-3"));
+        GM_getValue('url_static',[]).forEach((element)=>{
+            urlConfig.appendChild(createInputBlock(element.name, `URL meet ${element.label}`, element.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"));
+        })
 
         function createTaskBlock(id, labelText, inputClass, blockClass) {
             const block = document.createElement("div");
@@ -408,6 +493,8 @@
             const label = document.createElement("label");
             label.setAttribute("for", id);
             label.textContent = labelText;
+            label.classList = "input-group-text"
+            label.style = "margin-top: 5px; justify-content: center; display:flex; align-items: center";
 
             let input = null
             if (id !== 'description'){
@@ -421,7 +508,7 @@
 
             const span_id = document.createElement("span");
             span_id.id = `${id}-id`;
-            span_id.style = "display: none;"
+            span_id.style.display = 'none'
 
             block.appendChild(label);
             block.appendChild(input);
@@ -432,15 +519,15 @@
             return block;
         }
 
-        taskConfig.appendChild(createTaskBlock("project","Proyecto: ","task-config form-control", "block-config"));
-        taskConfig.appendChild(createTaskBlock("task","Tarea: ","task-config form-control", "block-config"));
-        taskConfig.appendChild(createTaskBlock("description","Descripción: ", "task-config form-control", "block-config"))
+        taskConfig.appendChild(createTaskBlock("project","Proyecto: ","task-config form-control", "input-group flex-nowrap mb-3"));
+        taskConfig.appendChild(createTaskBlock("task","Tarea: ","task-config form-control", "input-group flex-nowrap mb-3"));
+        taskConfig.appendChild(createTaskBlock("description","Descripción: ", "task-config form-control", "input-group flex-nowrap mb-3"))
 
         github.append(foot_img,by_name)
         div_footer.append(github)
         buttonConfig.append(imputationButton, saveButton);
-        formTabs.append(projectTaskTab, configTab)
-        imputationInputs.append(formTabs, globalConfig, taskConfig);
+        formTabs.append(projectTaskTab, configTab, urlTab)
+        imputationInputs.append(formTabs, globalConfig, taskConfig, urlConfig);
         div_container.append(title, imputationInputs, statusDiv, buttonConfig, div_footer);
         imputationConfig.append(display_buttom,div_container)
 
@@ -464,11 +551,17 @@
         })
         saveButton.addEventListener("click", configSettings)
         configTab.addEventListener("click", () => {
-            switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
+            let activeTab = document.querySelector(".tab.active")
+            let activeConfig = document.querySelector(".form-section.active")
+            if (configTab === activeTab) return
+            switchTab(configTab, activeTab, globalConfig, activeConfig);
             saveButton.style.display = '';
         });
         projectTaskTab.addEventListener("click", () => {
-            switchTab(projectTaskTab, configTab, taskConfig, globalConfig);
+            let activeTab = document.querySelector(".tab.active")
+            let activeConfig = document.querySelector(".form-section.active")
+            if (projectTaskTab === activeTab) return
+            switchTab(projectTaskTab, activeTab, taskConfig, activeConfig);
             saveButton.style.display = 'none';
             if (document.getElementById('project-id').textContent === ''){
                 document.getElementById('task').disabled = true
@@ -476,6 +569,19 @@
                 document.getElementById('task').disabled = false
             }
         });
+        urlTab.addEventListener("click", () => {
+            let activeTab = document.querySelector(".tab.active")
+            let activeConfig = document.querySelector(".form-section.active")
+            if (urlTab === activeTab) return
+            switchTab(urlTab, activeTab, urlConfig, activeConfig);
+            saveButton.style.display = '';
+        });
+        add_static_url.addEventListener('click', async ()=>{
+                    await newStaticUrl()
+                    setTimeout(()=>{
+                        showStatus(``, undefined, statusDiv)
+                    },2000)
+                })
 
         if (!GM_getValue('odoo_url') || GM_getValue("odoo_url") === '') {
             switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
@@ -486,11 +592,87 @@
         return imputationConfig;
     }
 
-    function clickButton(element, text, fromClass, toClass, disabled=true){
-        element.classList.add(toClass)
-        element.classList.remove(fromClass)
-        element.disabled = disabled
-        element.innerText = text
+    function toCamelCase(text) {
+        return text
+            .toLowerCase()
+            .split(' ')
+            .map((word, index) =>
+                 index === 0
+                 ? word
+                 : word.charAt(0).toUpperCase() + word.slice(1)
+                )
+            .join('');
+    }
+
+    async function newStaticUrl(){
+        if (!await ensureAuth()) return false
+        const name = prompt('Nombre');
+        if (name === null) return false
+        const url = prompt('URL');
+        let project = null
+        let task = null
+        do{
+            project = prompt('Nombre del proyecto:');
+            if (project === null) return false
+            let response = await odooRPC.odooSearch(
+                `project.project`,
+                [['name','ilike',project]],
+                1,
+                ["name"]
+            );
+            if (await response.records.length > 1){
+                alert('Más de un proyecto encontrado, especifique más');
+                project = null;
+                continue;
+            }else if (await response.records.length < 1){
+                alert('Ningun proyecto encontrado, revise el nombre');
+                project = null;
+                continue;
+            }
+            project = await response.records[0].name
+            await alert(`proyecto ${response.records[0].name} encontrado`)
+        }while(!project);
+        do{
+            task = prompt('Tarea (solo tareas abiertas):');
+            if (task === null) return false
+            let response = await odooRPC.odooSearch(
+                `project.task`,
+                [
+                    ['project_id.name','=',project],
+                    ['name','ilike',task],
+                    ['stage_id.closed','=',false]
+                ],
+                1,
+                ["name"]
+            );
+            if (await response.records.length > 1){
+                alert('Más de una tarea encontrada, especifique más')
+                task = null
+                continue;
+            }else if (await response.records.length < 1){
+                alert('Ninguna tarea encontrada, revise el nombre o si la tarea está cerrada')
+                task = null
+                continue;
+            }
+            task = await response.records[0].name
+            await alert(`Tarea ${response.records[0].name} encontrada`)
+        }while(!task);
+        const description = prompt("Descripción por defecto:")
+        let values = {
+            name: toCamelCase(name),
+            label: name,
+            value: url,
+            task: task,
+            project: project,
+            description: description
+        }
+        let statics = GM_getValue("url_static", [])
+        let element = statics.find(item => item.value === url)
+        if (element && document.getElementById(element.name)) document.getElementById(`block-${element.name}`).remove()
+        statics.push(values)
+        GM_setValue('url_static', statics)
+        document.getElementById('url_config').appendChild(createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
+        return true
     }
 
     window.addEventListener('load', () => {
@@ -498,4 +680,5 @@
         if (button)button.addEventListener('click', startTime);
         else startTime();
     });
+
 })();
