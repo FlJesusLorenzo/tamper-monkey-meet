@@ -270,7 +270,6 @@
     }
 
     async function sendTimeTrackingData() {
-        if (!await ensureAuth()) return
         project_id = parseInt(document.getElementById('project-id').textContent)
         task_id = parseInt(document.getElementById('task-id').textContent)
         description = document.getElementById('description').value;
