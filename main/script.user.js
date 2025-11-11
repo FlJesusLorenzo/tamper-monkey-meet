@@ -49,6 +49,7 @@
     let statusDiv = null
     let saveButton = null
     let imputationButton = null
+    let is_daily = false
 
     function cleanInfo(elements){
         elements.forEach((element)=>{
@@ -76,20 +77,23 @@
 
     async function setDailyReport(){
         if (!await ensureAuth()) return
-        document.getElementById('description').value = document.querySelector('div[jsname="NeC6gb"]').textContent
+        is_daily = true
         await setProjectAndTask("Temas internos", "Daily")
+        document.getElementById('description').value = document.querySelector('div[jsname="NeC6gb"]').textContent
     }
 
     async function setRefinementReport(){
         if (!await ensureAuth()) return
-        document.getElementById('description').value = document.querySelector('div[jsname="NeC6gb"]').textContent.replace('Daily', 'Refinamiento')
+        is_daily = false
         await setProjectAndTask("Temas internos", "Refinement")
+        document.getElementById('description').value = document.querySelector('div[jsname="NeC6gb"]').textContent.replace('Daily', 'Refinamiento')
     }
 
     async function setStaticUrlReport(element){
         if (!await ensureAuth()) return
-        document.getElementById('description').value = element.description
+        is_daily = false
         await setProjectAndTask(element.project, element.task)
+        document.getElementById('description').value = element.description
     }
 
     async function setProjectAndTask(project_name, task_name){
@@ -245,7 +249,7 @@
         initialTime = new Date();
         console.log(`Nuevo Temporizador iniciado a las: ${initialTime.toLocaleTimeString()}`);
         let text_button = "Imputar"
-        if (location.origin + location.pathname === GM_getValue('daily_meet')){
+        if (is_daily){
             setRefinementReport();
             text_button = "Imputar y empezar otra tarea"
         }
