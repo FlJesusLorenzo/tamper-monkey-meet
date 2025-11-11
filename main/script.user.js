@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Google Meet Imputación automática
+// @name         Google Meet Imputación automática - dev
 // @namespace    http://tampermonkey.net/
 // @version      1.5.0
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
