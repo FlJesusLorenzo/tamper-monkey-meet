@@ -249,6 +249,7 @@
             setRefinementReport();
             text_button = "Imputar y empezar otra tarea"
         }
+        imputationButton.innerText = text_button
     }
 
     function checkEndNumber(hours){
