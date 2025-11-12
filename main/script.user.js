@@ -732,8 +732,18 @@
             hangupDiv.appendChild(div)
 
             statusDiv = document.createElement('div')
-
-            button.addEventListener('click', newStaticUrl);
+            statusDiv.classList = 'success-message'
+            document.body.appendChild(statusDiv)
+            void statusDiv.offsetWidth;
+            
+            button.addEventListener('click', async () => {
+                await newStaticUrl()
+                statusDiv.classList.add('show');
+                setTimeout(() => {
+                  statusDiv.classList.remove('show');
+                  statusDiv.classList.add('hide');
+                }, 2000);
+            });
         });
 
         startObserver()
