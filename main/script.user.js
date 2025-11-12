@@ -603,7 +603,7 @@
     }
 
 
-    async function newStaticUrl(){
+    async function newStaticUrl(meet_endpoint = null){
         if (!await ensureAuth()) return false
         let name = null;
         let project = null
@@ -620,7 +620,7 @@
         }while(!name)
         do{
             if (location.origin === "https://meet.google.com") url = prompt(`URL de la reunión \n Ejemplo: https://meet.google.com/...`)
-            if (location.origin === "https://calendar.google.com") url = `https://${document.getElementById('xDetDlgVideo').querySelector('.AzuXid.O2VjS').textContent}`
+            if (location.origin === "https://calendar.google.com") url = `https://${meet_endpoint}`
             if (!url){
                 if (!confirm('¿Continuar creando la url estática?')) return false
                 alert('La url es obligatoria')
@@ -727,7 +727,7 @@
             sobreescribir = confirm(`Ya tienes una url estática vinculada a este meet\n${element.label}: ${meet_endpoint}\n ¿Quieres sobreescribirla?`)
         }
         if (!sobreescribir) return
-        await newStaticUrl()
+        await newStaticUrl(meet_endpoint)
     }
 
     if (location.origin == "https://meet.google.com"){
