@@ -222,6 +222,8 @@
             };
             document.getElementById(`${this.id}-id`).innerText = data.id;
             this.value = data.name;
+            if (this.id === 'project') project_id = data.id
+            if (this.id === 'task') task_id = data.id
             document.getElementById('task').disabled = false
         }catch{
             showStatus(`${this.id} no encontrado`, "error", statusDiv)
