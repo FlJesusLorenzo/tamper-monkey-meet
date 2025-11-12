@@ -338,10 +338,7 @@
                     showStatus(`La url estatica ${id} no ha podido guardarse`, "error", statusDiv)
                 }else {
                     showStatus(`La url estatica ${id} guardada con exito`, "success", statusDiv)
-                    let absolutes = GM_getValue("url_static",[]);
-                    let element = absolutes.find(item => item.name === id);
-                    absolutes.pop(element);
-                    GM_setValue("url_static",absolutes);
+                    cleanUrl(input.value)
                 }
                 setTimeout(()=>{
                     showStatus(``, undefined, statusDiv)
@@ -354,10 +351,7 @@
             span_del.style.cursor = 'pointer'
             span_del.addEventListener('click', async ()=>{
                 showStatus(`La url estatica ${id} borrada con exito`, "success", statusDiv)
-                let absolutes = GM_getValue("url_static",[]);
-                let element = absolutes.find(item => item.name === id);
-                absolutes.pop(element);
-                GM_setValue("url_static",absolutes)
+                cleanUrl(input.value);
                 block.remove()
                 setTimeout(()=>{
                     showStatus(``, undefined, statusDiv)
@@ -368,11 +362,12 @@
         return block;
     };
 
-    function cleanUrl(){
+    function cleanUrl(value){
         let absolutes = GM_getValue("url_static",[]);
-        let element = absolutes.find(item => item.name === id);
-        absolutes.pop(element);
-        GM_getValue("url_static",absolutes)
+        const element_pos = absolutes.findIndex(item => item.value === input.value);
+        if (element_pos === -1) return
+        absolutes.splice(element, 1);
+        GM_setValue("url_static",absolutes)
     }
 
     function createImputationConfig() {
@@ -699,6 +694,7 @@
         let statics = GM_getValue("url_static", [])
         let element = statics.find(item => item.value === url)
         if (element && document.getElementById(element.name)) document.getElementById(`block-${element.name}`).remove()
+        cleanUrl(url)
         statics.push(values)
         GM_setValue('url_static', statics)
         if (location.origin === "https://meet.google.com") document.getElementById('url_config').appendChild(createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
