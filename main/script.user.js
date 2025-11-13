@@ -37,6 +37,9 @@
         }
     )
     GM_addStyle(
+        GM_getResourceText('css')
+    )
+    GM_addStyle(
         GM_getResourceText('popup-css')
     )
     let initialTime = null
@@ -95,6 +98,7 @@
     }
 
     async function setProjectAndTask(project_name, task_name, is_static = false){
+        let project_temp_id = null
         project_id = await odooRPC.odooSearch(
             'project.project',
             [['name','ilike', project_name]],
@@ -107,15 +111,14 @@
             document.getElementById('project').value = data.name
             document.getElementById('project-id').innerText = data.id
         }else{
-            document.getElementById('block-new-project').childNodes.forEach((element)=>{
-                if (element.id === 'new-project') element.value = data.name
-                if (element.id === 'new-project-id') element.innerText = data.id
-            })
+            project_temp_id = data.id
+            document.getElementById('block-project').querySelector('input#project').value = data.name
+            document.getElementById('block-project').querySelector('#project-id').innerText = data.id
         }
         task_id = await odooRPC.odooSearch(
             'project.task',
             [
-                ['project_id','=',project_id],
+                ['project_id','=',project_temp_id || project_id],
                 ['stage_id.closed','=',false],
                 ['name','ilike',task_name]
             ],
@@ -128,10 +131,8 @@
             document.getElementById('task').value = data.name
             document.getElementById('task-id').innerText = data.id
         }else{
-            document.getElementById('block-new-task').childNodes.forEach((element)=>{
-                if (element.id === 'new-task') element.value = data.name
-                if (element.id === 'new-task-id') element.innerText = data.id
-            })
+            document.getElementById('block-task').querySelector('input#task').value = data.name
+            document.getElementById('block-task').querySelector('#task-id').innerText = data.id
         }
     }
 
@@ -341,7 +342,7 @@
         label.setAttribute("for", id);
         label.textContent = labelText;
         label.classList = "input-group-text";
-        label.style = "justify-content: center; display:flex; align-items: center";
+        label.style = "margin-top: 5px; justify-content: center; display:flex; align-items: center";
         block.appendChild(label);
 
         const input = document.createElement('input');
@@ -839,9 +840,7 @@
                 setStaticUrlReport(element);
             };
         });
-        GM_addStyle(
-            GM_getResourceText('css')
-        )
+        
         GM_addStyle(
             GM_getResourceText('bootstrap')
         )
