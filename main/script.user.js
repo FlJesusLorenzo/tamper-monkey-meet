@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      2.0.1
+// @version      2.1.0
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -13,6 +13,7 @@
 // @match        https://calendar.google.com/*
 // @exclude      https://meet.google.com/landing
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
+// @resource popup-css https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-imputar/refs/heads/main/main/css/style.css
 // @resource css https://raw.githubusercontent.com/FlJesusLorenzo/tamper-monkey-meet/refs/heads/main/main/css/style.css
 // @resource bootstrap https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
 // @resource poppins https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap
@@ -34,6 +35,12 @@
             lang: "es_ES",
             tz: "Europe/Madrid",
         }
+    )
+    GM_addStyle(
+        GM_getResourceText('css')
+    )
+    GM_addStyle(
+        GM_getResourceText('popup-css')
     )
     let initialTime = null
     let task_id = null
@@ -90,27 +97,43 @@
         document.getElementById('description').value = element.description
     }
 
-    async function setProjectAndTask(project_name, task_name){
+    async function setProjectAndTask(project_name, task_name, is_static = false){
+        let project_temp_id = null
         project_id = await odooRPC.odooSearch(
             'project.project',
             [['name','ilike', project_name]],
             1,
             ['id','name']
         );
-        document.getElementById('project').value = await project_id.records[0].name
-        document.getElementById('project-id').innerText = project_id = await project_id.records[0].id
+        let data = await project_id.records[0]
+        if (!is_static){
+            project_id = data.id
+            document.getElementById('project').value = data.name
+            document.getElementById('project-id').innerText = data.id
+        }else{
+            project_temp_id = data.id
+            document.getElementById('block-project').querySelector('input#project').value = data.name
+            document.getElementById('block-project').querySelector('#project-id').innerText = data.id
+        }
         task_id = await odooRPC.odooSearch(
             'project.task',
             [
-                ['project_id','=',project_id],
+                ['project_id','=',project_temp_id || project_id],
                 ['stage_id.closed','=',false],
                 ['name','ilike',task_name]
             ],
             1,
             ['id','name']
         );
-        document.getElementById('task').value = await task_id.records[0].name
-        document.getElementById('task-id').innerText = task_id = await task_id.records[0].id
+        data = await task_id.records[0]
+        if (!is_static){
+            task_id = data.id
+            document.getElementById('task').value = data.name
+            document.getElementById('task-id').innerText = data.id
+        }else{
+            document.getElementById('block-task').querySelector('input#task').value = data.name
+            document.getElementById('block-task').querySelector('#task-id').innerText = data.id
+        }
     }
 
     async function startTime(){
@@ -170,29 +193,30 @@
             this.value = ''
             return;
         }
+        const parent = this.parentElement.parentElement
         try{
             if (this.id === "project"){
-                document.getElementById('task').disabled = true;
+                parent.querySelector('input#task').disabled = true;
                 cleanInfo([
-                    document.getElementById('task'),
-                    document.getElementById('task-id')
+                    parent.querySelector('input#task'),
+                    parent.querySelector('#task-id')
                 ])
             }
             if (!this.value){
                 console.log(`${this.id} no encontrado`);
                 cleanInfo([
-                    document.getElementById(`${this.id}`),
-                    document.getElementById(`${this.id}-id`),
-                    document.getElementById("description")
+                    parent.querySelector(`input#${this.id}`),
+                    parent.querySelector(`#${this.id}-id`),
+                    parent.querySelector("#description")
                 ])
                 return;
             }
             let domain = [
                 ['name','ilike',this.value]
             ];
-            if (this.id == "task"){
+            if (this.id == "task" || this.id == "new-task"){
                 domain.push(['stage_id.closed','=',false]);
-                if (!document.getElementById('project-id').textContent){
+                if (!parent.querySelector('#project-id').textContent){
                     console.log("rellenar el proyecto primero");
                     this.value = ''
                     return;
@@ -209,11 +233,12 @@
             if (!data){
                 return;
             };
-            document.getElementById(`${this.id}-id`).innerText = data.id;
+
             this.value = data.name;
             if (this.id === 'project') project_id = data.id
             if (this.id === 'task') task_id = data.id
-            document.getElementById('task').disabled = false
+            parent.querySelector('input#task').disabled = false
+            return data
         }catch{
             showStatus(`${this.id} no encontrado`, "error", statusDiv)
             setTimeout(()=>{
@@ -336,12 +361,7 @@
             span_conf.innerText = '⚙️'
             span_conf.style.cursor = 'pointer'
             span_conf.addEventListener('click', async ()=>{
-                if (!await newStaticUrl()){
-                    showStatus(`La url estatica ${id} no ha podido guardarse`, "error", statusDiv)
-                }else {
-                    showStatus(`La url estatica ${id} guardada con exito`, "success", statusDiv)
-                    cleanUrl(input.value)
-                }
+                await createPopupStaticUrl()
                 setTimeout(()=>{
                     showStatus(``, undefined, statusDiv)
                 },2000)
@@ -363,6 +383,45 @@
         }
         return block;
     };
+
+    function createTaskBlock(id, labelText, inputClass, blockClass) {
+        const block = document.createElement("div");
+        block.id = `block-${id}`;
+        block.classList = blockClass
+
+        const label = document.createElement("label");
+        label.setAttribute("for", id);
+        label.textContent = labelText;
+        label.classList = "input-group-text"
+        label.style = "margin-top: 5px; justify-content: center; display:flex; align-items: center";
+
+        let input = null
+        if (id !== 'description'){
+            input = document.createElement("input");
+        } else {
+            input = document.createElement('textarea')
+        }
+
+        input.id = id;
+        input.classList = inputClass;
+
+        const span_id = document.createElement("span");
+        span_id.id = `${id}-id`;
+        span_id.style.display = 'none'
+
+        block.appendChild(label);
+        block.appendChild(input);
+        block.appendChild(span_id);
+
+        if (id !== 'description') {
+            input.addEventListener("change", async function () {
+                let data = await getProyectOrTask.call(this)
+                span_id.innerText = data.id
+            })
+        }
+
+        return block;
+    }
 
     function cleanUrl(value){
         let absolutes = GM_getValue("url_static",[]);
@@ -480,40 +539,6 @@
             urlConfig.appendChild(createInputBlock(element.name, `URL meet ${element.label}`, element.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"));
         })
 
-        function createTaskBlock(id, labelText, inputClass, blockClass) {
-            const block = document.createElement("div");
-            block.id = `block-${id}`;
-            block.classList = blockClass
-
-            const label = document.createElement("label");
-            label.setAttribute("for", id);
-            label.textContent = labelText;
-            label.classList = "input-group-text"
-            label.style = "margin-top: 5px; justify-content: center; display:flex; align-items: center";
-
-            let input = null
-            if (id !== 'description'){
-                input = document.createElement("input");
-            } else {
-                input = document.createElement('textarea')
-            }
-
-            input.id = id;
-            input.classList = inputClass;
-
-            const span_id = document.createElement("span");
-            span_id.id = `${id}-id`;
-            span_id.style.display = 'none'
-
-            block.appendChild(label);
-            block.appendChild(input);
-            block.appendChild(span_id);
-
-            if (id !== 'description') input.addEventListener("change", getProyectOrTask)
-
-            return block;
-        }
-
         taskConfig.appendChild(createTaskBlock("project","Proyecto: ","task-config form-control", "input-group flex-nowrap mb-3"));
         taskConfig.appendChild(createTaskBlock("task","Tarea: ","task-config form-control", "input-group flex-nowrap mb-3"));
         taskConfig.appendChild(createTaskBlock("description","Descripción: ", "task-config form-control", "input-group flex-nowrap mb-3"))
@@ -572,11 +597,11 @@
             saveButton.style.display = '';
         });
         add_static_url.addEventListener('click', async ()=>{
-                    await newStaticUrl()
-                    setTimeout(()=>{
-                        showStatus(``, undefined, statusDiv)
-                    },2000)
-                })
+            await createPopupStaticUrl()
+            setTimeout(()=>{
+                showStatus(``, undefined, statusDiv)
+            },2000)
+        })
 
         if (!GM_getValue('odoo_url') || GM_getValue("odoo_url") === '') {
             switchTab(configTab, projectTaskTab, globalConfig, taskConfig);
@@ -598,7 +623,6 @@
                 )
             .join('');
     }
-
 
     async function newStaticUrl(meet_endpoint = null){
         if (!await ensureAuth()) return false
@@ -693,13 +717,12 @@
             project: project,
             description: description
         }
+        cleanUrl(url)
         let statics = GM_getValue("url_static", [])
         let element = statics.find(item => item.value === url)
         if (element && document.getElementById(element.name)) document.getElementById(`block-${element.name}`).remove()
-        cleanUrl(url)
         statics.push(values)
         GM_setValue('url_static', statics)
-        if (location.origin === "https://meet.google.com") document.getElementById('url_config').appendChild(createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
         alert(`URL Guardada\n    Nombre: ${name}\n    URL: ${url}\n    Proyecto: ${project}\n    Tarea: ${task}\n    Descripción: ${description}`)
         return true
     }
@@ -717,15 +740,86 @@
         return new_element
     }
 
-    async function createNewStaticUrl(meet_container, sobreescribir=true){
+    async function createNewStaticUrl(meet_container){
         const absolutes = GM_getValue('url_static', [])
         const meet_endpoint = meet_container.querySelector('.AzuXid.O2VjS').textContent
-        const element = absolutes.find(item => item.value === `https://${meet_endpoint}`)
-        if (element) {
-            sobreescribir = confirm(`Ya tienes una url estática vinculada a este meet\n${element.label}: ${meet_endpoint}\n ¿Quieres sobreescribirla?`)
-        }
-        if (!sobreescribir) return
-        await newStaticUrl(meet_endpoint)
+        let element = absolutes.find(item => item.value === `https://${meet_endpoint}`)
+        if (!element) element = {value: `https://${meet_endpoint}`}
+        await createPopupStaticUrl(element)
+    }
+
+    function closeConfigPopup() {
+        const overlay = document.querySelector(".config-overlay");
+        const popup = document.querySelector(".config-popup");
+        if (overlay) overlay.remove();
+        if (popup) popup.remove();
+    }
+
+    async function createPopupStaticUrl(static_url = {}){
+        const overlay = document.createElement("div");
+        overlay.classList = "timesheet-overlay config-overlay"
+        const popup = createElement('div', 'popup', 'timesheet-popup config-popup')
+        const h3 = createElement('h3', 'header', '', 'Config')
+        const div_inputs = createElement('div', 'div-inputs', 'timesheet-form-group')
+        const input_name = createInputBlock('new-name', 'Nombre: ', static_url.label || '', "task-config form-control", "input-group flex-nowrap mb-3")
+        const input_url = createInputBlock('url', 'URL: ', static_url.value || '', "task-config form-control", "input-group flex-nowrap mb-3")
+        const input_project = createTaskBlock('project', 'Proyecto: ', "task-config form-control", "input-group flex-nowrap mb-3")
+        const input_task = createTaskBlock('task', 'Tarea: ', "task-config form-control", "input-group flex-nowrap mb-3")
+        const input_description = createTaskBlock('description', 'Descripción: ', "task-config form-control", "input-group flex-nowrap mb-3")
+        const div_buttons = createElement('div', 'div-buttons', 'timesheet-buttons')
+        const button_submit = createElement('button', 'button-submit', 'timesheet-btn timesheet-btn-primary', '✅ Guardar')
+        const button_cancel = createElement('button', 'button-cancel', 'timesheet-btn timesheet-btn-secondary', '❌ Cancelar')
+        statusDiv = createElement('div', 'config-status', '')
+
+
+
+        div_inputs.append(input_name, input_url, input_project, input_task, input_description)
+        div_buttons.append(button_submit, button_cancel)
+        popup.append(h3, div_inputs, div_buttons, statusDiv)
+        document.body.append(overlay, popup)
+
+        if (static_url.project && static_url.task) await setProjectAndTask(static_url.project, static_url.task, true);
+        if (static_url.description) input_description.getElementsByTagName('textarea')[0].value = static_url.description;
+
+        overlay.addEventListener("click", closeConfigPopup)
+        button_submit.addEventListener("click", () => {
+            let statics = GM_getValue("url_static", [])
+            if (
+                !input_name.getElementsByTagName('input')[0].value ||
+                !input_project.getElementsByTagName('input')[0].value ||
+                !input_url.getElementsByTagName('input')[0].value ||
+                !input_task.getElementsByTagName('input')[0].value ||
+                !input_description.getElementsByTagName('textarea')[0].value
+            ){
+                showStatus('Todos los campos son obligatorios','error',statusDiv)
+                return
+            }
+            if (statics.find(item=> item.value === input_url.getElementsByTagName('input')[0].value)){
+                if(!confirm(`Ya existe una url estática para este meet\n¿Sobrescribir?`)) return
+            }
+            let values = {
+                name: toCamelCase(input_name.getElementsByTagName('input')[0].value),
+                label: input_name.getElementsByTagName('input')[0].value,
+                value: input_url.getElementsByTagName('input')[0].value,
+                project: input_project.getElementsByTagName('input')[0].value,
+                task: input_task.getElementsByTagName('input')[0].value,
+                description: input_description.getElementsByTagName('textarea')[0].value,
+            }
+            cleanUrl(values.value)
+            statics = GM_getValue("url_static", [])
+            statics.push(values)
+            GM_setValue('url_static', statics)
+            showStatus('Nueva url guardada','success',statusDiv)
+            setTimeout(closeConfigPopup, 2000)
+            if (location.origin === "https://meet.google.com") {
+                let old_element = document.getElementById(`block-${values.name}`)
+                if (old_element) old_element.remove()
+                document.getElementById('url_config').appendChild(createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
+
+            }
+        });
+        button_cancel.addEventListener("click", closeConfigPopup);
+
     }
 
     if (location.origin == "https://meet.google.com"){
@@ -733,7 +827,9 @@
             const container = document.querySelector('div[jscontroller="mVP9bb"]')
             const new_div = document.getElementById('imputation_config')
 
-            if (!container || container.style.display === 'none' || new_div) return;
+            if (!container || new_div) return;
+
+            container.style.display === ''
 
             const static_urls = GM_getValue('url_static',[])
             container.parentElement.appendChild(createImputationConfig());
@@ -744,9 +840,7 @@
                 setStaticUrlReport(element);
             };
         });
-        GM_addStyle(
-            GM_getResourceText('css')
-        )
+        
         GM_addStyle(
             GM_getResourceText('bootstrap')
         )
@@ -764,13 +858,11 @@
         observer = new MutationObserver(() => {
             let button = null
             let div = null
-            console.log('comprobar observer')
             const hangupDiv = document.querySelector('div.YWILgc.UcbTuf:not(.qdulke)');
             const hungupDiv_create = document.querySelector('div[jsname="I0Fcpe"]');
             const hangupDiv_specific_event = document.getElementById('xSaveBu');
             const new_div = document.getElementById('static_url_button')
 
-            console.log(hangupDiv,hungupDiv_create,hangupDiv_specific_event,new_div)
             if (new_div) return;
 
             if (hangupDiv){
@@ -786,10 +878,6 @@
                         return;
                     }
                     await createNewStaticUrl(meet_container)
-                    statusDiv.classList.add('show')
-                    setTimeout(()=>{
-                        statusDiv.classList.remove('show')
-                    },2000)
                 });
             } else if (hungupDiv_create){
                 button = createElement('button', 'static_url_button','nUt0vb zmrbhe qs41qe')
