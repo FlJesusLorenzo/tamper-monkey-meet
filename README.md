@@ -20,6 +20,21 @@ Si vuelves a pulsar en el engranaje, el popup se ocultará.
 
 <img width="617" height="359" alt="imagen" src="https://github.com/user-attachments/assets/301fc815-14b0-46dc-8c41-48d167b4088d" />
 
+<img width="579" height="480" alt="imagen" src="https://github.com/user-attachments/assets/74cbe371-6928-49c7-b6d9-64acd0db6653" />
+
+<img width="580" height="459" alt="imagen" src="https://github.com/user-attachments/assets/3951e450-143f-4cfa-a5b1-170ac45be55b" />
+
+<img width="590" height="304" alt="imagen" src="https://github.com/user-attachments/assets/734f15b4-15c5-4370-9adf-cd18f673fab1" />
+
+<img width="475" height="536" alt="imagen" src="https://github.com/user-attachments/assets/7f871353-a962-45de-81d2-d493016a6483" />
+
+<img width="431" height="340" alt="imagen" src="https://github.com/user-attachments/assets/152cd247-90fd-486f-b3fc-e73f49624563" />
+
+<img width="638" height="579" alt="imagen" src="https://github.com/user-attachments/assets/9b0b9ef6-072a-47b3-99b4-bf677ebc8e09" />
+
+<img width="1169" height="253" alt="imagen" src="https://github.com/user-attachments/assets/3e62fb7a-1e0e-4ae3-aafc-a411a75682fa" />
+
+
 ---
 
 ## ⚙️ Configuración inicial
