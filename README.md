@@ -43,13 +43,7 @@ Introduce los siguientes campos:
 
 - ✅ URL de tu instancia de Odoo  
 - ✅ Nombre de la base de datos  
-- ✅ (Opcional) Meet de Daily  
-- ✅ (Opcional) Meet de Refinamiento  
-  > Si Daily y Refinamiento usan el **mismo enlace**, deja vacío el campo de refinamiento.
-
-Tras guardar, si la configuración es incorrecta, el botón aparecerá en **amarillo**:
-
-<img width="79" height="71" alt="imagen" src="https://github.com/user-attachments/assets/8095f18d-3974-4b2a-91ae-0fec4ea6f137" />
+- ✅ (Opcional) Meet de Daily
 
 ---
 
