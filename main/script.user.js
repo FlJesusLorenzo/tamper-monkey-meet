@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      2.1.2
+// @version      2.1.1
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -27,7 +27,12 @@
 
 (function () {
     'use strict';
-
+    GM_addStyle(
+        GM_getResourceText('css')
+    )
+    GM_addStyle(
+        GM_getResourceText('popup-css')
+    )
     const CONSTANTS = {
         STORAGE: {
             ODOO_URL: 'odoo_url',
@@ -59,7 +64,6 @@
             BTN_INFO: 'btn-info'
         }
     };
-
     const UI = {
         create: (tag, id, classList, text = '') => {
             const element = document.createElement(tag);
@@ -142,7 +146,6 @@
             return block;
         }
     };
-
     const Utils = {
         toCamelCase: (text) => {
             return text
@@ -187,7 +190,6 @@
             GM_setValue(CONSTANTS.STORAGE.STATIC_URLS, absolutes)
         }
     };
-
     const ErrorHandler = {
         handle: (error, context) => {
             console.error(`Error in ${context}:`, error);
@@ -196,21 +198,6 @@
             }
         }
     };
-
-    let odooRPC = new OdooRPC(
-        GM_getValue(CONSTANTS.STORAGE.ODOO_URL),
-        GM_getValue(CONSTANTS.STORAGE.DB),
-        {
-            lang: "es_ES",
-            tz: "Europe/Madrid",
-        }
-    )
-    GM_addStyle(
-        GM_getResourceText('css')
-    )
-    GM_addStyle(
-        GM_getResourceText('popup-css')
-    )
     let initialTime = null
     let task_id = null
     let description = null
@@ -220,8 +207,14 @@
     let imputationButton = null
     let is_daily = false
     let observer = null
-
-
+    let odooRPC = new OdooRPC(
+        GM_getValue(CONSTANTS.STORAGE.ODOO_URL),
+        GM_getValue(CONSTANTS.STORAGE.DB),
+        {
+            lang: "es_ES",
+            tz: "Europe/Madrid",
+        }
+    )
 
     async function ensureAuth() {
         const auth = await odooRPC.authenticate();
@@ -294,7 +287,6 @@
     }
 
     async function startTime() {
-
         const start_button = document.querySelector(CONSTANTS.SELECTORS.MEET.START_BUTTON);
         if (start_button) start_button.removeEventListener('click', startTime);
         initialTime = new Date();
@@ -302,15 +294,14 @@
         try {
             setTimeout(() => {
                 document.querySelector(CONSTANTS.SELECTORS.MEET.END_CALL_BUTTON).addEventListener('click', async () => {
-                    window.addEventListener('beforeunload', (e) => {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    })
-                    await sendTimeTrackingData()
-                    window.removeEventListener('beforeunload', (e) => {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    })
+                    try {
+                        if (!project_id && !task_id && !description || await sendTimeTrackingData()) {
+                            window.removeEventListener('beforeunload', beforeUnloadHandler)
+                            return;
+                        }
+                    } catch (e) {
+                        ErrorHandler.handle(e, 'sendTimeTrackingData');
+                    }
                 })
             }, 3000)
         } catch (e) {
@@ -432,8 +423,6 @@
         imputationButton.innerText = text_button
     }
 
-
-
     async function sendTimeTrackingData() {
         description = document.getElementById('description').value;
         if (!project_id) {
@@ -485,9 +474,79 @@
         }
     }
 
+    async function createNewStaticUrl(meet_container) {
+        const absolutes = GM_getValue(CONSTANTS.STORAGE.STATIC_URLS, [])
+        const meet_endpoint = meet_container.querySelector(CONSTANTS.SELECTORS.MEET.MEET_INFO).textContent
+        let element = absolutes.find(item => item.value === `https://${meet_endpoint}`)
+        if (!element) element = { value: `https://${meet_endpoint}` }
+        await createPopupStaticUrl(element)
+    }
+
+    async function createPopupStaticUrl(static_url = {}) {
+        const overlay = UI.create("div", null, "timesheet-overlay config-overlay");
+        const popup = UI.create('div', 'popup', 'timesheet-popup config-popup');
+        const h3 = UI.create('h3', 'header', '', 'Config');
+        const div_inputs = UI.create('div', 'div-inputs', 'timesheet-form-group');
+        const input_name = UI.createInputBlock('new-name', 'Nombre: ', static_url.label || '', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_url = UI.createInputBlock('url', 'URL: ', static_url.value || '', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_project = UI.createTaskBlock('project', 'Proyecto: ', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_task = UI.createTaskBlock('task', 'Tarea: ', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_description = UI.createTaskBlock('description', 'Descripción: ', "task-config form-control", "input-group flex-nowrap mb-3")
+        const div_buttons = UI.create('div', 'div-buttons', 'timesheet-buttons')
+        const button_submit = UI.create('button', 'button-submit', 'timesheet-btn timesheet-btn-primary', '✅ Guardar')
+        const button_cancel = UI.create('button', 'button-cancel', 'timesheet-btn timesheet-btn-secondary', '❌ Cancelar')
+        statusDiv = UI.create('div', 'config-status', '')
 
 
 
+        div_inputs.append(input_name, input_url, input_project, input_task, input_description)
+        div_buttons.append(button_submit, button_cancel)
+        popup.append(h3, div_inputs, div_buttons, statusDiv)
+        document.body.append(overlay, popup)
+
+        if (static_url.project && static_url.task) await setProjectAndTask(static_url.project, static_url.task, true);
+        if (static_url.description) input_description.getElementsByTagName('textarea')[0].value = static_url.description;
+
+        overlay.addEventListener("click", closeConfigPopup)
+        button_submit.addEventListener("click", () => {
+            let statics = GM_getValue("url_static", [])
+            if (
+                !input_name.getElementsByTagName('input')[0].value ||
+                !input_project.getElementsByTagName('input')[0].value ||
+                !input_url.getElementsByTagName('input')[0].value ||
+                !input_task.getElementsByTagName('input')[0].value ||
+                !input_description.getElementsByTagName('textarea')[0].value
+            ) {
+                showStatus('Todos los campos son obligatorios', 'error', statusDiv)
+                return
+            }
+            if (statics.find(item => item.value === input_url.getElementsByTagName('input')[0].value)) {
+                if (!confirm(`Ya existe una url estática para este meet\n¿Sobrescribir?`)) return
+            }
+            let values = {
+                name: Utils.toCamelCase(input_name.getElementsByTagName('input')[0].value),
+                label: input_name.getElementsByTagName('input')[0].value,
+                value: input_url.getElementsByTagName('input')[0].value,
+                project: input_project.getElementsByTagName('input')[0].value,
+                task: input_task.getElementsByTagName('input')[0].value,
+                description: input_description.getElementsByTagName('textarea')[0].value,
+            }
+            Utils.cleanUrl(values.value)
+            statics = GM_getValue("url_static", [])
+            statics.push(values)
+            GM_setValue('url_static', statics)
+            showStatus('Nueva url guardada', 'success', statusDiv)
+            setTimeout(closeConfigPopup, 2000)
+            if (location.origin === "https://meet.google.com") {
+                let old_element = document.getElementById(`block-${values.name}`)
+                if (old_element) old_element.remove()
+                document.getElementById('url_config').appendChild(UI.createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
+
+            }
+        });
+        button_cancel.addEventListener("click", closeConfigPopup);
+
+    }
 
     function createImputationConfig() {
         const imputationConfig = UI.create("div", "imputation_config", "pt8HRc RTBkae");
@@ -631,126 +690,6 @@
         return imputationConfig;
     }
 
-
-
-    async function newStaticUrl(meet_endpoint = null) {
-        if (!await ensureAuth()) return false
-        let name = null;
-        let project = null
-        let task = null
-        let url = null;
-        let description = null
-        do {
-            name = prompt('Nombre de la url estatica')
-            if (!name) {
-                if (!confirm('¿Continuar creando la url estática?')) return false
-                alert('El nombre es obligatorio')
-            }
-
-        } while (!name)
-        do {
-            if (location.origin === "https://meet.google.com") url = prompt(`URL de la reunión \n Ejemplo: https://meet.google.com/...`)
-            if (location.origin === "https://calendar.google.com") url = `https://${meet_endpoint}`
-            if (!url) {
-                if (!confirm('¿Continuar creando la url estática?')) return false
-                alert('La url es obligatoria')
-            }
-        } while (!url)
-        do {
-            project = prompt('Nombre del proyecto:');
-            if (!project) {
-                if (!confirm('¿Continuar creando la url estática?')) return false
-                alert('El proyecto es obligatorio')
-                continue
-            }
-            let response = await odooRPC.odooSearch(
-                `project.project`,
-                [['name', 'ilike', project]],
-                undefined,
-                ["name"]
-            );
-            if (await response.records.length > 1) {
-                alert('Más de un proyecto encontrado, especifique más');
-                project = null;
-                continue;
-            } else if (await response.records.length < 1) {
-                alert('Ningun proyecto encontrado, revise el nombre');
-                project = null;
-                continue;
-            }
-            project = await response.records[0].name
-            if (!confirm(`Proyecto ${project} encontrado`)) project = null
-        } while (!project);
-
-        do {
-            task = prompt('Tarea (solo tareas abiertas):');
-            if (!task) {
-                if (!confirm('¿Continuar creando la url estática?')) return false
-                alert('La tarea es obligatoria')
-                continue
-            }
-            let response = await odooRPC.odooSearch(
-                `project.task`,
-                [
-                    ['project_id.name', '=', project],
-                    ['name', 'ilike', task],
-                    ['stage_id.closed', '=', false]
-                ],
-                undefined,
-                ["name"]
-            );
-            if (await response.records.length > 1) {
-                alert('Más de una tarea encontrada, especifique más')
-                task = null
-                continue;
-            } else if (await response.records.length < 1) {
-                alert('Ninguna tarea encontrada, revise el nombre o si la tarea está cerrada')
-                task = null
-                continue;
-            }
-            task = await response.records[0].name
-            if (!confirm(`Tarea ${task} encontrada`)) task = null
-        } while (!task);
-        do {
-            description = prompt("Descripción por defecto:")
-            if (!description) {
-                if (!confirm('¿Continuar creando la url estática?')) return false
-                alert('La descripción es obligatoria')
-            }
-        } while (!description);
-        let values = {
-            name: toCamelCase(name),
-            label: name,
-            value: url,
-            task: task,
-            project: project,
-            description: description
-        }
-        Utils.cleanUrl(url)
-        let statics = GM_getValue(CONSTANTS.STORAGE.STATIC_URLS, [])
-        let element = statics.find(item => item.value === url)
-        if (element && document.getElementById(element.name)) document.getElementById(`block-${element.name}`).remove()
-        statics.push(values)
-        GM_setValue(CONSTANTS.STORAGE.STATIC_URLS, statics)
-        alert(`URL Guardada\n    Nombre: ${name}\n    URL: ${url}\n    Proyecto: ${project}\n    Tarea: ${task}\n    Descripción: ${description}`)
-        return true
-    }
-
-    function startObserver() {
-        observer.observe(document.body, { childList: true, subtree: true });
-        if (this) this.removeEventListener("click", startObserver);
-    }
-
-
-
-    async function createNewStaticUrl(meet_container) {
-        const absolutes = GM_getValue(CONSTANTS.STORAGE.STATIC_URLS, [])
-        const meet_endpoint = meet_container.querySelector(CONSTANTS.SELECTORS.MEET.MEET_INFO).textContent
-        let element = absolutes.find(item => item.value === `https://${meet_endpoint}`)
-        if (!element) element = { value: `https://${meet_endpoint}` }
-        await createPopupStaticUrl(element)
-    }
-
     function closeConfigPopup() {
         const overlay = document.querySelector(".config-overlay");
         const popup = document.querySelector(".config-popup");
@@ -758,70 +697,47 @@
         if (popup) popup.remove();
     }
 
-    async function createPopupStaticUrl(static_url = {}) {
+    function startObserver() {
+        observer.observe(document.body, { childList: true, subtree: true });
+        if (this) this.removeEventListener("click", startObserver);
+    }
+
+    function beforeUnloadHandler(e) {
+        e.preventDefault();
+        e.returnValue = '';
+        popupForRemainingInfo();
+    }
+
+    function popupForRemainingInfo() {
         const overlay = UI.create("div", null, "timesheet-overlay config-overlay");
-        const popup = UI.create('div', 'popup', 'timesheet-popup config-popup')
-        const h3 = UI.create('h3', 'header', '', 'Config')
-        const div_inputs = UI.create('div', 'div-inputs', 'timesheet-form-group')
-        const input_name = UI.createInputBlock('new-name', 'Nombre: ', static_url.label || '', "task-config form-control", "input-group flex-nowrap mb-3")
-        const input_url = UI.createInputBlock('url', 'URL: ', static_url.value || '', "task-config form-control", "input-group flex-nowrap mb-3")
-        const input_project = UI.createTaskBlock('project', 'Proyecto: ', "task-config form-control", "input-group flex-nowrap mb-3")
-        const input_task = UI.createTaskBlock('task', 'Tarea: ', "task-config form-control", "input-group flex-nowrap mb-3")
-        const input_description = UI.createTaskBlock('description', 'Descripción: ', "task-config form-control", "input-group flex-nowrap mb-3")
-        const div_buttons = UI.create('div', 'div-buttons', 'timesheet-buttons')
-        const button_submit = UI.create('button', 'button-submit', 'timesheet-btn timesheet-btn-primary', '✅ Guardar')
-        const button_cancel = UI.create('button', 'button-cancel', 'timesheet-btn timesheet-btn-secondary', '❌ Cancelar')
-        statusDiv = UI.create('div', 'config-status', '')
-
-
-
-        div_inputs.append(input_name, input_url, input_project, input_task, input_description)
-        div_buttons.append(button_submit, button_cancel)
-        popup.append(h3, div_inputs, div_buttons, statusDiv)
-        document.body.append(overlay, popup)
-
-        if (static_url.project && static_url.task) await setProjectAndTask(static_url.project, static_url.task, true);
-        if (static_url.description) input_description.getElementsByTagName('textarea')[0].value = static_url.description;
-
-        overlay.addEventListener("click", closeConfigPopup)
-        button_submit.addEventListener("click", () => {
-            let statics = GM_getValue("url_static", [])
-            if (
-                !input_name.getElementsByTagName('input')[0].value ||
-                !input_project.getElementsByTagName('input')[0].value ||
-                !input_url.getElementsByTagName('input')[0].value ||
-                !input_task.getElementsByTagName('input')[0].value ||
-                !input_description.getElementsByTagName('textarea')[0].value
-            ) {
-                showStatus('Todos los campos son obligatorios', 'error', statusDiv)
-                return
-            }
-            if (statics.find(item => item.value === input_url.getElementsByTagName('input')[0].value)) {
-                if (!confirm(`Ya existe una url estática para este meet\n¿Sobrescribir?`)) return
-            }
-            let values = {
-                name: Utils.toCamelCase(input_name.getElementsByTagName('input')[0].value),
-                label: input_name.getElementsByTagName('input')[0].value,
-                value: input_url.getElementsByTagName('input')[0].value,
-                project: input_project.getElementsByTagName('input')[0].value,
-                task: input_task.getElementsByTagName('input')[0].value,
-                description: input_description.getElementsByTagName('textarea')[0].value,
-            }
-            Utils.cleanUrl(values.value)
-            statics = GM_getValue("url_static", [])
-            statics.push(values)
-            GM_setValue('url_static', statics)
-            showStatus('Nueva url guardada', 'success', statusDiv)
-            setTimeout(closeConfigPopup, 2000)
-            if (location.origin === "https://meet.google.com") {
-                let old_element = document.getElementById(`block-${values.name}`)
-                if (old_element) old_element.remove()
-                document.getElementById('url_config').appendChild(UI.createInputBlock(values.name, `URL meet ${values.label}`, values.value, "global-config form-control new-url", "input-group flex-nowrap mb-3"))
-
-            }
+        const popup = UI.create('div', 'popup', 'timesheet-popup config-popup');
+        const h3 = UI.create('h3', 'header', '', 'Set remaining info');
+        const div_inputs = UI.create('div', 'div-inputs', 'timesheet-form-group');
+        const input_project = UI.createTaskBlock('project', 'Proyecto: ', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_task = UI.createTaskBlock('task', 'Tarea: ', "task-config form-control", "input-group flex-nowrap mb-3");
+        const input_description = UI.createTaskBlock('description', 'Descripción: ', "task-config form-control", "input-group flex-nowrap mb-3");
+        const div_buttons = UI.create('div', 'div-buttons', 'timesheet-buttons');
+        const button_submit = UI.create('button', 'button-submit', 'timesheet-btn timesheet-btn-primary', '✅ Guardar');
+        const button_cancel = UI.create('button', 'button-cancel', 'timesheet-btn timesheet-btn-secondary', '❌ Cancelar');
+        div_inputs.append(input_project, input_task, input_description);
+        div_buttons.append(button_submit, button_cancel);
+        popup.append(h3, div_inputs, div_buttons);
+        overlay.append(popup);
+        document.body.appendChild(overlay);
+        button_cancel.addEventListener('click', () => {
+            overlay.remove();
+            popup.remove();
+            window.removeEventListener('beforeunload', beforeUnloadHandler)
         });
-        button_cancel.addEventListener("click", closeConfigPopup);
-
+        button_submit.addEventListener('click', async () => {
+            project_id = input_project.value;
+            task_id = input_task.value;
+            description = input_description.value;
+            await sendTimeTrackingData()
+            overlay.remove();
+            popup.remove();
+            window.removeEventListener('beforeunload', beforeUnloadHandler)
+        });
     }
 
     if (location.origin == "https://meet.google.com") {
@@ -841,6 +757,8 @@
             } else if (element) {
                 setStaticUrlReport(element);
             };
+            window.addEventListener('beforeunload', beforeUnloadHandler)
+            console.info("Agregado evento para cancelar el cierre de la pestaña.")
         });
 
         GM_addStyle(
@@ -923,5 +841,4 @@
 
         startObserver()
     }
-
 })();
