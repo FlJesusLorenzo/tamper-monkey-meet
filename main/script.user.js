@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      2.2.0
+// @version      2.2.1
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -46,7 +46,7 @@
                 END_CALL_BUTTON: 'button[jsname="CQylAd"]',
                 MEET_CONTAINER: 'div[jscontroller="mVP9bb"]',
                 MEET_INFO: '.AzuXid.O2VjS',
-                DESCRIPTION_SOURCE: 'NeC6gb'
+                DESCRIPTION_SOURCE: 'div[jsname="NeC6gb"]'
             },
             CALENDAR: {
                 HANGUP_DIV: 'div.YWILgc.UcbTuf:not(.qdulke)',
