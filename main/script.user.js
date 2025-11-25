@@ -46,7 +46,7 @@
                 END_CALL_BUTTON: 'button[jsname="CQylAd"]',
                 MEET_CONTAINER: 'div[jscontroller="mVP9bb"]',
                 MEET_INFO: '.AzuXid.O2VjS',
-                DESCRIPTION_SOURCE: 'NeC6gb'
+                DESCRIPTION_SOURCE: 'div[jsname="NeC6gb"]'
             },
             CALENDAR: {
                 HANGUP_DIV: 'div.YWILgc.UcbTuf:not(.qdulke)',
