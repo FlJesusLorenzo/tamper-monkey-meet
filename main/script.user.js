@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Meet Imputación automática
 // @namespace    http://tampermonkey.net/
-// @version      2.3.1
+// @version      2.3.2
 // @description  Registra el tiempo del meet y genera la imputacion automaticamente
 // @author       Jesus Lorenzo
 // @grant        GM_setValue
@@ -266,7 +266,7 @@
         let date = new Date()
         await setProjectAndTask(GM_getValue('area', ''), `daily%${date.toLocaleString('es-ES', { month: 'long' })}%${date.getFullYear()}`)
         setTimeout(()=> {
-            document.getElementById('description').value = document.querySelector(CONSTANTS.SELECTORS.MEET.DESCRIPTION_SOURCE).getAttribute(CONSTANTS.SELECTORS.MEET.DESCRIPTION_ATTRIBUTE)
+            document.getElementById('description').value = `Daily ${GM_getValue('area', '')}`
         }, 5000)
     }
 
@@ -275,7 +275,7 @@
         is_daily = false
         let date = new Date()
         await setProjectAndTask(GM_getValue('area', ''), `refin%${date.toLocaleString('es-ES', { month: 'long' })}%${date.getFullYear()}`)
-        document.getElementById('description').value = document.querySelector(CONSTANTS.SELECTORS.MEET.DESCRIPTION_SOURCE).getAttribute(CONSTANTS.SELECTORS.MEET.DESCRIPTION_ATTRIBUTE).replace('Daily', 'Refinamiento')
+        document.getElementById('description').value = `Refinamiento ${GM_getValue('area', '')}`
     }
 
     async function setStaticUrlReport(element) {
